@@ -1,6 +1,6 @@
 [package]
 name = "rsclock"
-version = "0.1.4"
+version = "0.1.5-prerelease"
 authors = ["valebes"]
 edition = "2018"
 

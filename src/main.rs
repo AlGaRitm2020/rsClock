@@ -13,7 +13,7 @@
 
 */
 
-const VERSION: &str = "0.1.4";
+const VERSION: &str = "0.1.5-prerelease";
 
 const ONE: [[bool; 6]; 5] = [
     [false, false, true, true, false, false],
@@ -222,7 +222,15 @@ fn draw<W: Write>(
                         sym
                     )
                     .unwrap();
+                } else {
+                    write!(
+                        stdout,
+                        "{} ",
+                        cursor::Goto(i as u16 + pos_x, j as u16 + pos_y)
+                    )
+                    .unwrap();
                 }
+
                 write!(
                     stdout,
                     "{}{}{}",
@@ -235,6 +243,17 @@ fn draw<W: Write>(
         }
         pos_x = pos_x + 7;
     }
+}
+
+fn print_date<W: Write>(date: &String, x_size: u16, x: u16, y: u16, stdout: &mut RawTerminal<W>) {
+    write!(
+        stdout,
+        "{}{}{}",
+        cursor::Goto((x_size / 2) - (date.len() as u16) / 2 + x, 6 + y),
+        clear::CurrentLine,
+        date
+    )
+    .unwrap();
 }
 
 /* Main */
@@ -254,7 +273,7 @@ fn main() {
     let x_mod = 1;
     let y_mod = 1;
 
-    /* Default date size */
+    /* Default clock size */
     let mut x_size = 34;
     let mut y_size = 7;
 
@@ -334,8 +353,9 @@ fn main() {
         x_size = x_size + 21;
     }
 
-    let clock: &str = format.as_str();
-    let date: &str = "%F";
+    let clock_f: &str = format.as_str();
+    let date_f: &str = "%F";
+    let mut d_date = Local::now().format(date_f).to_string(); // get date
 
     /* Setting refresh value */
     let refresh = Duration::from_millis(100);
@@ -354,11 +374,15 @@ fn main() {
         y = pos.1;
     }
 
+    /* Clean terminal */
+    write!(stdout, "{}{}{}", cursor::Restore, cursor::Hide, clear::All).unwrap();
+
+    /* Print date */
+    let mut p_date = true;
+
     /* Start loop */
     loop {
-        write!(stdout, "\n{}{}\n", cursor::Hide, clear::All).unwrap();
-
-        // Display terminal size only in debug mode
+        /* Display terminal size only in debug mode */
         if debug {
             write!(
                 stdout,
@@ -370,8 +394,8 @@ fn main() {
             .unwrap();
         }
 
-        let time = Local::now().format(clock).to_string(); // get time
-        let d_date = Local::now().format(date).to_string(); // get date
+        let time = Local::now().format(clock_f).to_string(); // get time
+        let date_tmp = Local::now().format(date_f).to_string();
         let mut hour: Vec<[[bool; 6]; 5]> = Vec::new();
         for c in time.chars() {
             hour.push(symbol(c));
@@ -379,18 +403,16 @@ fn main() {
 
         /* Draw time and print date */
         draw(hour, sym.clone(), x, y, fg_color, bg_color, &mut stdout);
-        write!(
-            stdout,
-            "{}{}",
-            cursor::Goto((x_size/2) - (d_date.len() as u16)/2 + x, 6 + y),
-            d_date
-        )
-        .unwrap();
+        if d_date != date_tmp || p_date {
+            d_date = String::from(date_tmp);
+            print_date(&d_date, x_size, x, y, &mut stdout);
+            p_date = false;
+        }
         stdout.flush().unwrap();
 
         /* Wait for the next cycle */
         let mut exit = 0;
-        while time == Local::now().format(clock).to_string() {
+        while time == Local::now().format(clock_f).to_string() {
             let ev = stdin.next(); // Get user input
             if let Some(Ok(b)) = ev {
                 match b {
@@ -436,6 +458,9 @@ fn main() {
                     y = new_size.1;
                 }
                 size = termion::terminal_size().unwrap();
+                if size.1 >= 7 {
+                    p_date = true;
+                }
                 break; // -> Re-draw
             }
             thread::sleep(refresh); // Sleep
@@ -446,5 +471,5 @@ fn main() {
             break;
         }
     }
-    write!(stdout, "{}", termion::cursor::Show).unwrap(); // Reset cursor
+    write!(stdout, "{}{}{}", clear::All, cursor::Restore, cursor::Show).unwrap(); // Reset cursor
 }
