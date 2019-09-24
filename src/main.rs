@@ -473,3 +473,4 @@ fn main() {
     }
     write!(stdout, "{}{}{}", clear::All, cursor::Restore, cursor::Show).unwrap(); // Reset cursor
 }
+
